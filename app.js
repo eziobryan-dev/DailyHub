@@ -43,10 +43,6 @@
   }
   function startOfDay(ts) { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); }
 
-  // Free screenshot service; the favicon placeholder shows if it fails.
-  const screenshotUrl = (url) =>
-    `https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=true&meta=false&embed=screenshot.url&viewport.width=1280&viewport.height=800`;
-
   // ---------- rendering ----------
   function buildCard(game) {
     const node = els.tpl.content.firstElementChild.cloneNode(true);
@@ -62,9 +58,14 @@
     if (visitedAt) node.querySelector(".last").textContent = lastVisitLabel(visitedAt);
     if (visitedAt && isToday(visitedAt)) node.classList.add("played");
 
-    preview.addEventListener("load", () => thumb.classList.add("has-preview"));
-    preview.addEventListener("error", () => preview.remove());
-    preview.src = game.preview_url || screenshotUrl(game.url);
+    // Custom image if one is set in the database, otherwise the site's logo (favicon).
+    if (game.preview_url) {
+      preview.addEventListener("load", () => thumb.classList.add("has-preview"));
+      preview.addEventListener("error", () => preview.remove());
+      preview.src = game.preview_url;
+    } else {
+      preview.remove();
+    }
 
     const onOpen = () => recordVisit(game.id);
     link.addEventListener("click", onOpen);

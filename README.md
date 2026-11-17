@@ -23,7 +23,7 @@ Maintainer ──approves in the Supabase dashboard (status = 'approved')──�
 | Front end | Plain HTML/CSS/JS, no build step, hosted on GitHub Pages |
 | Database | Supabase, a single `games` table, called through its REST API with `fetch` |
 | Visit history | `localStorage` in the user's browser |
-| Previews | `preview_url` if set, otherwise a [Microlink](https://microlink.io) screenshot, otherwise the site's favicon |
+| Previews | The site's logo (favicon), or a custom image if `preview_url` is set |
 | Moderation | Manual, in the Supabase Table Editor |
 
 ### `games` table
