@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DailyHub</title>
+  <meta name="description" content="Tous tes jeux quotidiens au même endroit.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%236d5efc'/><text x='50' y='68' font-size='56' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>D</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo">D</span>
+      <div>
+        <h1>DailyHub</h1>
+        <p class="date" id="today"></p>
+      </div>
+    </div>
+    <input id="search" type="search" placeholder="Filtrer les jeux…" aria-label="Filtrer les jeux" autocomplete="off">
+  </header>
+
+  <main>
+    <section id="mine-section">
+      <div class="section-head">
+        <h2>Mes dailies</h2>
+        <span class="hint" id="mine-progress"></span>
+      </div>
+      <div class="grid" id="mine"></div>
+      <p class="empty" id="mine-empty">Ouvre un jeu du catalogue : il apparaîtra ici, trié par ta dernière visite.</p>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>À découvrir</h2>
+        <span class="hint" id="discover-count"></span>
+      </div>
+      <div class="grid" id="discover"></div>
+      <p class="empty" id="discover-empty">Tu as tout essayé ! Propose un nouveau jeu ci-dessous.</p>
+    </section>
+
+    <section class="suggest">
+      <h2>Proposer un jeu</h2>
+      <p class="hint">Ta proposition sera vérifiée avant d'être ajoutée au catalogue de tout le monde.</p>
+      <form id="suggest-form" novalidate>
+        <input name="name" type="text" placeholder="Nom du jeu" maxlength="80" required>
+        <input name="url" type="url" placeholder="https://…" maxlength="500" required>
+        <!-- Honeypot: humans never see or fill this field -->
+        <input name="website" type="text" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button type="submit">Envoyer</button>
+      </form>
+      <p class="form-msg" id="form-msg" role="status"></p>
+    </section>
+  </main>
+
+  <p class="status" id="status" role="status">Chargement…</p>
+
+  <template id="card-tpl">
+    <article class="card">
+      <a class="card-link" target="_blank" rel="noopener noreferrer">
+        <div class="thumb">
+          <img alt="" loading="lazy" referrerpolicy="no-referrer">
+          <div class="placeholder"><img class="favicon" alt="" loading="lazy"></div>
+          <span class="badge">✓ Joué aujourd'hui</span>
+        </div>
+        <div class="meta">
+          <h3></h3>
+          <span class="domain"></span>
+          <span class="last"></span>
+        </div>
+      </a>
+      <button class="remove" type="button" title="Retirer de mes dailies" aria-label="Retirer de mes dailies">×</button>
+    </article>
+  </template>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
