@@ -6,27 +6,26 @@ A browser start page that gathers your daily games into cards sorted by your las
 
 - **My dailies** — games you've opened from DailyHub, sorted by your most recent visit, with a "played today" badge and a daily progress counter.
 - **Discover** — every approved game you haven't played yet (GeoGuessr Daily Challenge, TimeGuessr, Metrodoku, …).
-- **Suggest a game** — anyone can submit a name and URL. Suggestions are stored as `pending`, the maintainer gets an email with **Accept** / **Deny** buttons, and approved games appear for everyone.
-- **No account needed** — your visit history stays in your browser (`localStorage`).
+- **Suggest a game** — anyone can submit a name and URL. Suggestions are stored as `pending` until the admin approves them.
+- **Admin page** (`admin.html`) — password + 2FA login. Review suggestions, add, edit or delete games.
+- **No account needed** for players — your visit history stays in your browser (`localStorage`).
 - Light and dark themes, follows your system setting.
 
 ## Architecture
 
 ```
-Browser (static HTML/CSS/JS) ──GET approved games──▶ Supabase REST API (Postgres + RLS)
+Browser (static HTML/CSS/JS) ──GET approved games──────▶ Supabase REST API (Postgres + RLS)
                              ──POST pending suggestion──▶
-
-New pending row ──trigger (pg_net)──▶ Edge Function notify-suggestion ──Resend──▶ maintainer email
-Email button ──▶ moderate.html (GitHub Pages) ──confirm──▶ Edge Function moderate ──▶ approve / delete
+admin.html ──Supabase Auth (password + TOTP)──▶ aal2 session ──approve / edit / delete──▶ (RLS: admins only)
 ```
 
 | Part | Choice |
 |---|---|
-| Front end | Plain HTML/CSS/JS, no build step, hosted on GitHub Pages |
+| Front end | Plain HTML/CSS/JS, no build step, no third-party script, hosted on GitHub Pages |
 | Database | Supabase, a single `games` table, called through its REST API with `fetch` |
 | Visit history | `localStorage` in the user's browser |
 | Previews | The site's logo (favicon), or a custom image if `preview_url` is set |
-| Moderation | Email with signed Accept/Deny links (Resend), or manually in the Supabase Table Editor |
+| Moderation | `admin.html`, Supabase Auth with email + password and TOTP 2FA |
 
 ### `games` table
 
@@ -39,20 +38,31 @@ Email button ──▶ moderate.html (GitHub Pages) ──confirm──▶ Edge 
 | `status` | `text` | `pending` or `approved` |
 | `created_at` | `timestamptz` | Defaults to `now()` |
 
-### Security (Row Level Security)
+## Security
 
-- Anonymous users can **select** only rows where `status = 'approved'`.
-- Anonymous users can **insert** only rows where `status = 'pending'` and `preview_url` is empty.
-- No update or delete from the client. The publishable key in `config.js` is therefore safe to commit.
-- The form also has a honeypot field and a one-minute client-side cooldown.
+All access control lives in the database (Row Level Security). The admin page holds no secret: anyone can open it, but nobody else can do anything with it.
 
-### Moderation security
+**Visitors (anon key)**
+- Can **select** only rows where `status = 'approved'`.
+- Can **insert** only rows where `status = 'pending'` and `preview_url` is empty.
+- Cannot update or delete. The publishable key in `config.js` is therefore safe to commit.
+- The suggestion form also has a honeypot field and a one-minute client-side cooldown.
 
-- Secrets (`webhook_secret`, `moderation_secret`) and the admin email live in `private.config`, a schema that the REST API doesn't expose. They are generated inside the database and never committed.
-- Edge Functions read them through `get_moderation_config()`, which only the service role can execute.
-- `notify-suggestion` only accepts calls carrying the webhook secret (sent by the trigger).
-- Email links are signed with HMAC-SHA256 over `id:action`. A link can't be forged or reused for another game.
-- The email buttons open a confirmation page; nothing changes until you click **Confirm**. This protects against mail scanners that pre-open links.
+**Admin**
+- `private.is_admin()` is true only when all of these hold:
+  - the signed-in user's email is listed in `private.admins`,
+  - that email is confirmed,
+  - the session was verified with 2FA (`aal = 'aal2'` in the JWT).
+- Only then can the user see pending rows and insert, update or delete games.
+- A stolen password alone gives nothing: without the TOTP code the session stays `aal1`.
+- `private` isn't exposed by the REST API; `private.admins` isn't readable by any API role.
+
+**Admin page hardening**
+- Strict Content-Security-Policy: own scripts and styles only, network calls only to the Supabase project, no inline script.
+- No third-party library: auth and data calls use `fetch` on the Supabase REST endpoints.
+- Session kept in `sessionStorage` (gone when the tab closes) and signed out after 30 minutes of inactivity.
+- User content is always rendered as text; only `http(s)` links are made clickable.
+- `noindex`, `no-referrer`, and no link to it from the public page.
 
 ## Project layout
 
@@ -60,18 +70,18 @@ Email button ──▶ moderate.html (GitHub Pages) ──confirm──▶ Edge 
 index.html                     page structure and card template
 style.css                      styles (light + dark)
 app.js                         data loading, rendering, visits, suggestion form
+admin.html / admin.css / admin.js   admin page (login, 2FA, moderation)
 config.js                      Supabase URL and publishable key
-moderate.html                  confirmation page opened from the email buttons
-supabase/migrations/           table, RLS policies, moderation trigger and config
-supabase/functions/            Edge Functions notify-suggestion and moderate
+supabase/migrations/           table, RLS policies, admin role
 supabase/seed.sql              starter catalog
 ```
 
-## Reviewing suggestions
+## Admin
 
-**By email:** each suggestion sends an email to the admin address with **Accept** and **Deny** buttons. Click one, then confirm on the page that opens.
-
-**Manually:** Supabase dashboard → **Table Editor** → `games` → filter on `status = pending`. Set `status` to `approved` to accept, delete the row to refuse.
+1. Open `admin.html` (e.g. `https://<user>.github.io/DailyHub/admin.html`).
+2. Sign in with your email and password.
+3. First time: scan the QR code with an authenticator app (Google Authenticator, Authy, 1Password…) and enter the code. Afterwards: just enter the 6-digit code.
+4. Accept or refuse pending suggestions, add games directly, edit or delete catalog entries.
 
 ## Run locally
 
@@ -88,11 +98,11 @@ Then open <http://localhost:5173>.
 
 ## Setting up your own instance
 
-1. Create a Supabase project and run the files in `supabase/migrations/` in order, then `supabase/seed.sql`, in the SQL editor. Adjust `functions_url` and `site_url` in `0002_moderation.sql` to your project.
-2. Add your email: `insert into private.config values ('admin_email', 'you@example.com');`
-3. Deploy the Edge Functions in `supabase/functions/` with JWT verification **off** (they authenticate requests themselves).
-4. Create a [Resend](https://resend.com) API key and add it as the Edge Function secret `RESEND_API_KEY`. Without a custom domain, Resend only delivers to the email of your Resend account.
-5. Put your project URL and publishable key in `config.js`, and your Pages origin in `ALLOWED_ORIGINS` in `supabase/functions/moderate/index.ts`.
+1. Create a Supabase project and run the files in `supabase/migrations/` in order, then `supabase/seed.sql`, in the SQL editor.
+2. Create your admin account: **Authentication → Users → Add user → Create new user**, with *Auto Confirm User* checked.
+3. Allow it as admin: `insert into private.admins values ('you@example.com');`
+4. Disable sign-ups: **Authentication → Sign In / Providers → Allow new users to sign up** off.
+5. Put your project URL and publishable key in `config.js`, and your project URL in the `connect-src` of the CSP in `admin.html`.
 6. Publish the repository with GitHub Pages (Settings → Pages → Deploy from a branch → `main` / root).
 
 ## License

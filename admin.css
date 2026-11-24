@@ -1,0 +1,61 @@
+[hidden] { display: none !important; }
+
+.auth-card, .panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+.auth-card { max-width: 400px; margin: 48px auto; }
+.auth-card h2 { margin-bottom: 12px; }
+.auth-card form { display: grid; gap: 12px; }
+.auth-card label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+
+main input {
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  min-width: 0;
+}
+
+.btn {
+  font: inherit; font-weight: 600;
+  padding: 9px 16px; border-radius: 10px; border: 1px solid transparent;
+  cursor: pointer; white-space: nowrap;
+}
+.btn:disabled { opacity: .6; cursor: default; }
+.btn.primary { background: var(--accent); color: var(--accent-text); }
+.btn.ok { background: var(--ok); color: #fff; }
+.btn.danger { background: transparent; color: var(--err); border-color: var(--err); }
+.btn.ghost { background: transparent; color: var(--text); border-color: var(--border); }
+
+.qr { display: block; width: 200px; height: 200px; margin: 8px auto; background: #fff; padding: 8px; border-radius: 10px; }
+.secret { display: block; word-break: break-all; text-align: center; font-size: 13px; margin-bottom: 12px; user-select: all; }
+
+.msg { margin: 10px 0 0; font-size: 14px; min-height: 1.5em; }
+.msg.ok { color: var(--ok); }
+.msg.err { color: var(--err); }
+.banner { margin: 16px 0 0; }
+
+.rows { display: grid; gap: 10px; }
+.row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+}
+.row-main { display: grid; gap: 2px; min-width: 0; }
+.row-url { color: var(--accent); font-size: 13px; word-break: break-all; }
+.row-date { font-size: 12px; }
+.row-actions { display: flex; gap: 8px; }
+
+.row-form { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; }
+.row-form input[name="name"] { flex: 1 1 160px; }
+.row-form input[name="url"] { flex: 2 1 220px; }
+.row-form input[name="preview_url"] { flex: 2 1 180px; }
+.panel h2 { margin-bottom: 12px; }

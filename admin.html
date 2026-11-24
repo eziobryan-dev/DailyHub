@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://cithcxrdoemkvmazergr.supabase.co; base-uri 'none'; form-action 'none'">
+  <title>DailyHub · Admin</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%236d5efc'/%3E%3Ctext x='50' y='68' font-size='56' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'%3ED%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="admin.css?v=1">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo">D</span>
+      <div>
+        <h1>DailyHub</h1>
+        <p class="date">Administration</p>
+      </div>
+    </div>
+    <button id="logout" class="btn ghost" type="button" hidden>Se déconnecter</button>
+  </header>
+
+  <main>
+    <!-- Step 1: email + password -->
+    <section id="login-view" class="auth-card" hidden>
+      <h2>Connexion</h2>
+      <form id="login-form" novalidate>
+        <label>Email<input name="email" type="email" autocomplete="username" required></label>
+        <label>Mot de passe<input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="btn primary" type="submit">Continuer</button>
+      </form>
+      <p class="msg" id="login-msg" role="alert"></p>
+    </section>
+
+    <!-- Step 2: TOTP code (and first-time enrollment) -->
+    <section id="mfa-view" class="auth-card" hidden>
+      <h2>Double authentification</h2>
+      <div id="enroll" hidden>
+        <p class="hint">Première connexion : scanne ce QR code avec ton application d'authentification (Google Authenticator, Authy, 1Password…), puis saisis le code affiché.</p>
+        <img id="qr" class="qr" alt="QR code de double authentification">
+        <p class="hint">Ou saisis cette clé à la main :</p>
+        <code id="secret" class="secret"></code>
+      </div>
+      <p class="hint" id="mfa-hint">Saisis le code à 6 chiffres de ton application d'authentification.</p>
+      <form id="mfa-form" novalidate>
+        <label>Code<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+        <button class="btn primary" type="submit">Valider</button>
+      </form>
+      <p class="msg" id="mfa-msg" role="alert"></p>
+    </section>
+
+    <!-- Step 3: dashboard -->
+    <div id="dashboard" hidden>
+      <p class="msg banner" id="dash-msg" role="status"></p>
+
+      <section>
+        <div class="section-head">
+          <h2>Propositions en attente</h2>
+          <span class="hint" id="pending-count"></span>
+        </div>
+        <div class="rows" id="pending"></div>
+        <p class="empty" id="pending-empty">Aucune proposition en attente.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Ajouter un jeu</h2>
+        <form id="add-form" class="row-form" novalidate>
+          <input name="name" type="text" placeholder="Nom du jeu" maxlength="80" required>
+          <input name="url" type="url" placeholder="https://…" maxlength="500" required>
+          <input name="preview_url" type="url" placeholder="Image (optionnel)" maxlength="500">
+          <button class="btn primary" type="submit">Ajouter</button>
+        </form>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Catalogue</h2>
+          <span class="hint" id="catalog-count"></span>
+        </div>
+        <div class="rows" id="catalog"></div>
+      </section>
+    </div>
+  </main>
+
+  <template id="pending-tpl">
+    <article class="row">
+      <div class="row-main">
+        <strong class="row-name"></strong>
+        <a class="row-url" target="_blank" rel="noopener noreferrer"></a>
+        <span class="row-date hint"></span>
+      </div>
+      <div class="row-actions">
+        <button class="btn ok" type="button" data-act="approve">Accepter</button>
+        <button class="btn danger" type="button" data-act="deny">Refuser</button>
+      </div>
+    </article>
+  </template>
+
+  <template id="catalog-tpl">
+    <article class="row">
+      <form class="row-form" novalidate>
+        <input name="name" type="text" maxlength="80" required aria-label="Nom">
+        <input name="url" type="url" maxlength="500" required aria-label="Lien">
+        <input name="preview_url" type="url" maxlength="500" placeholder="Image (optionnel)" aria-label="Image">
+        <button class="btn primary" type="submit">Enregistrer</button>
+        <button class="btn danger" type="button" data-act="delete">Supprimer</button>
+      </form>
+    </article>
+  </template>
+
+  <script src="config.js?v=2"></script>
+  <script src="admin.js?v=1"></script>
+</body>
+</html>
