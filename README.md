@@ -6,7 +6,7 @@ A browser start page that gathers your daily games into cards sorted by your las
 
 - **My dailies** — games you've opened from DailyHub, sorted by your most recent visit, with a "played today" badge and a daily progress counter.
 - **Discover** — every approved game you haven't played yet (GeoGuessr Daily Challenge, TimeGuessr, Metrodoku, …).
-- **Suggest a game** — anyone can submit a name and URL. Suggestions are stored as `pending` and only appear for everyone once the maintainer approves them.
+- **Suggest a game** — anyone can submit a name and URL. Suggestions are stored as `pending`, the maintainer gets an email with **Accept** / **Deny** buttons, and approved games appear for everyone.
 - **No account needed** — your visit history stays in your browser (`localStorage`).
 - Light and dark themes, follows your system setting.
 
@@ -15,7 +15,9 @@ A browser start page that gathers your daily games into cards sorted by your las
 ```
 Browser (static HTML/CSS/JS) ──GET approved games──▶ Supabase REST API (Postgres + RLS)
                              ──POST pending suggestion──▶
-Maintainer ──approves in the Supabase dashboard (status = 'approved')──▶
+
+New pending row ──trigger (pg_net)──▶ Edge Function notify-suggestion ──Resend──▶ maintainer email
+Email button ──▶ moderate.html (GitHub Pages) ──confirm──▶ Edge Function moderate ──▶ approve / delete
 ```
 
 | Part | Choice |
@@ -24,7 +26,7 @@ Maintainer ──approves in the Supabase dashboard (status = 'approved')──�
 | Database | Supabase, a single `games` table, called through its REST API with `fetch` |
 | Visit history | `localStorage` in the user's browser |
 | Previews | The site's logo (favicon), or a custom image if `preview_url` is set |
-| Moderation | Manual, in the Supabase Table Editor |
+| Moderation | Email with signed Accept/Deny links (Resend), or manually in the Supabase Table Editor |
 
 ### `games` table
 
@@ -44,6 +46,14 @@ Maintainer ──approves in the Supabase dashboard (status = 'approved')──�
 - No update or delete from the client. The publishable key in `config.js` is therefore safe to commit.
 - The form also has a honeypot field and a one-minute client-side cooldown.
 
+### Moderation security
+
+- Secrets (`webhook_secret`, `moderation_secret`) and the admin email live in `private.config`, a schema that the REST API doesn't expose. They are generated inside the database and never committed.
+- Edge Functions read them through `get_moderation_config()`, which only the service role can execute.
+- `notify-suggestion` only accepts calls carrying the webhook secret (sent by the trigger).
+- Email links are signed with HMAC-SHA256 over `id:action`. A link can't be forged or reused for another game.
+- The email buttons open a confirmation page; nothing changes until you click **Confirm**. This protects against mail scanners that pre-open links.
+
 ## Project layout
 
 ```
@@ -51,15 +61,17 @@ index.html                     page structure and card template
 style.css                      styles (light + dark)
 app.js                         data loading, rendering, visits, suggestion form
 config.js                      Supabase URL and publishable key
-supabase/migrations/           table + RLS policies
+moderate.html                  confirmation page opened from the email buttons
+supabase/migrations/           table, RLS policies, moderation trigger and config
+supabase/functions/            Edge Functions notify-suggestion and moderate
 supabase/seed.sql              starter catalog
 ```
 
 ## Reviewing suggestions
 
-1. Open the Supabase dashboard → **Table Editor** → `games`.
-2. Filter on `status = pending`.
-3. To accept: set `status` to `approved` (optionally fill `preview_url`). To refuse: delete the row.
+**By email:** each suggestion sends an email to the admin address with **Accept** and **Deny** buttons. Click one, then confirm on the page that opens.
+
+**Manually:** Supabase dashboard → **Table Editor** → `games` → filter on `status = pending`. Set `status` to `approved` to accept, delete the row to refuse.
 
 ## Run locally
 
@@ -76,9 +88,12 @@ Then open <http://localhost:5173>.
 
 ## Setting up your own instance
 
-1. Create a Supabase project and run `supabase/migrations/0001_games.sql`, then `supabase/seed.sql`, in the SQL editor.
-2. Put your project URL and publishable key in `config.js`.
-3. Publish the repository with GitHub Pages (Settings → Pages → Deploy from a branch → `main` / root).
+1. Create a Supabase project and run the files in `supabase/migrations/` in order, then `supabase/seed.sql`, in the SQL editor. Adjust `functions_url` and `site_url` in `0002_moderation.sql` to your project.
+2. Add your email: `insert into private.config values ('admin_email', 'you@example.com');`
+3. Deploy the Edge Functions in `supabase/functions/` with JWT verification **off** (they authenticate requests themselves).
+4. Create a [Resend](https://resend.com) API key and add it as the Edge Function secret `RESEND_API_KEY`. Without a custom domain, Resend only delivers to the email of your Resend account.
+5. Put your project URL and publishable key in `config.js`, and your Pages origin in `ALLOWED_ORIGINS` in `supabase/functions/moderate/index.ts`.
+6. Publish the repository with GitHub Pages (Settings → Pages → Deploy from a branch → `main` / root).
 
 ## License
 
