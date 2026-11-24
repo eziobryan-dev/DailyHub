@@ -145,8 +145,10 @@
     if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
     try { new URL(url); } catch { return showFormMsg("L'adresse du jeu n'est pas valide.", "err"); }
 
-    if (games.some((g) => domainOf(g.url) === domainOf(url) && new URL(g.url).pathname === new URL(url).pathname)) {
-      return showFormMsg("Ce jeu est déjà dans le catalogue.", "err");
+    // One daily per site: reject any URL whose domain (www. ignored) is already in the catalog.
+    const domain = domainOf(url);
+    if (games.some((g) => domainOf(g.url) === domain)) {
+      return showFormMsg("Ce daily est déjà dans le catalogue.", "err");
     }
     const last = store.get(COOLDOWN_KEY, 0);
     if (Date.now() - last < COOLDOWN_MS) return showFormMsg("Patiente une minute avant une nouvelle proposition.", "err");
