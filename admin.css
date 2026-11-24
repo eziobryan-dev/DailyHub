@@ -33,9 +33,6 @@ main input {
 .btn.danger { background: transparent; color: var(--err); border-color: var(--err); }
 .btn.ghost { background: transparent; color: var(--text); border-color: var(--border); }
 
-.qr { display: block; width: 200px; height: 200px; margin: 8px auto; background: #fff; padding: 8px; border-radius: 10px; }
-.secret { display: block; word-break: break-all; text-align: center; font-size: 13px; margin-bottom: 12px; user-select: all; }
-
 .msg { margin: 10px 0 0; font-size: 14px; min-height: 1.5em; }
 .msg.ok { color: var(--ok); }
 .msg.err { color: var(--err); }

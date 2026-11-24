@@ -1,6 +1,6 @@
--- DailyHub: admin page (Supabase Auth with password + TOTP 2FA, enforced by RLS)
--- Only users listed in private.admins, with a confirmed email AND a session
--- verified with 2FA (aal2), can see pending suggestions and add/edit/delete games.
+-- DailyHub: admin page (Supabase Auth with email + password, enforced by RLS)
+-- Only signed-in users listed in private.admins, with a confirmed email,
+-- can see pending suggestions and add/edit/delete games.
 
 create schema if not exists private;
 revoke all on schema private from public, anon;
@@ -23,14 +23,13 @@ stable
 security definer
 set search_path = ''
 as $$
-  select coalesce(auth.jwt() ->> 'aal', '') = 'aal2'
-     and exists (
-       select 1
-       from auth.users u
-       join private.admins a on lower(a.email) = lower(u.email)
-       where u.id = auth.uid()
-         and u.email_confirmed_at is not null
-     );
+  select exists (
+    select 1
+    from auth.users u
+    join private.admins a on lower(a.email) = lower(u.email)
+    where u.id = auth.uid()
+      and u.email_confirmed_at is not null
+  );
 $$;
 
 revoke execute on function private.is_admin() from public, anon;

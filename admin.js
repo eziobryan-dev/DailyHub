@@ -2,7 +2,7 @@
   "use strict";
 
   // Security model: this page holds no secret. Every read/write is checked by
-  // Postgres RLS, which only allows listed admins with a 2FA-verified (aal2) session.
+  // Postgres RLS, which only allows signed-in users listed as admins.
   const { supabaseUrl, supabaseKey } = window.DAILYHUB_CONFIG;
   const AUTH = `${supabaseUrl}/auth/v1`;
   const GAMES = `${supabaseUrl}/rest/v1/games`;
@@ -10,7 +10,7 @@
   const IDLE_LIMIT_MS = 30 * 60 * 1000;
 
   const $ = (id) => document.getElementById(id);
-  const views = { login: $("login-view"), mfa: $("mfa-view"), dashboard: $("dashboard") };
+  const views = { login: $("login-view"), dashboard: $("dashboard") };
 
   // ---------- session ----------
   let session = null;
@@ -28,13 +28,6 @@
   function clearSession() {
     session = null;
     try { sessionStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
-  }
-
-  function claims() {
-    try {
-      const part = session.access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-      return JSON.parse(atob(part));
-    } catch { return {}; }
   }
 
   // ---------- HTTP helpers ----------
@@ -123,7 +116,7 @@
       });
       form.reset();
       saveSession(data);
-      await startMfa();
+      await openDashboard();
     } catch (err) {
       console.error(err);
       form.password.value = "";
@@ -136,69 +129,8 @@
     }
   });
 
-  // ---------- step 2: TOTP ----------
-  let factorId = null;
-
-  async function startMfa() {
-    show("mfa");
-    setMsg("mfa-msg", "");
-    const user = await authed(`${AUTH}/user`);
-    const totp = (user.factors || []).filter((f) => f.factor_type === "totp");
-    const verified = totp.find((f) => f.status === "verified");
-
-    if (verified) {
-      factorId = verified.id;
-      $("enroll").hidden = true;
-      $("mfa-hint").hidden = false;
-    } else {
-      // First login: drop abandoned enrollments, then enroll a new authenticator.
-      for (const f of totp) await authed(`${AUTH}/factors/${f.id}`, { method: "DELETE" });
-      const enrolled = await authed(`${AUTH}/factors`, {
-        method: "POST",
-        body: { factor_type: "totp", friendly_name: `DailyHub ${new Date().toISOString()}` },
-      });
-      factorId = enrolled.id;
-      const qr = String(enrolled.totp.qr_code || "");
-      const svgPrefix = /^data:image\/svg\+xml;utf-8,/;
-      $("qr").src = svgPrefix.test(qr)
-        ? "data:image/svg+xml;charset=utf-8," + encodeURIComponent(qr.replace(svgPrefix, ""))
-        : qr;
-      $("secret").textContent = enrolled.totp.secret;
-      $("enroll").hidden = false;
-      $("mfa-hint").hidden = true;
-    }
-    $("mfa-form").code.focus();
-  }
-
-  $("mfa-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const code = form.code.value.replace(/\s/g, "");
-    if (!/^\d{6}$/.test(code)) return setMsg("mfa-msg", "Le code fait 6 chiffres.");
-
-    busy(form, true);
-    try {
-      const challenge = await authed(`${AUTH}/factors/${factorId}/challenge`, { method: "POST", body: {} });
-      const data = await authed(`${AUTH}/factors/${factorId}/verify`, {
-        method: "POST", body: { challenge_id: challenge.id, code },
-      });
-      saveSession(data);
-      form.reset();
-      $("qr").removeAttribute("src");
-      $("secret").textContent = "";
-      await openDashboard();
-    } catch (err) {
-      console.error(err);
-      if (err.status === 401 && !session) return; // signed out by authed()
-      setMsg("mfa-msg", err.status === 429 ? "Trop de tentatives. Patiente un peu." : "Code incorrect ou expiré.");
-    } finally {
-      busy(form, false);
-    }
-  });
-
-  // ---------- step 3: dashboard ----------
+  // ---------- step 2: dashboard ----------
   async function openDashboard() {
-    if (claims().aal !== "aal2") return startMfa();
     show("dashboard");
     await loadGames();
   }

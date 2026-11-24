@@ -7,7 +7,7 @@ A browser start page that gathers your daily games into cards sorted by your las
 - **My dailies** — games you've opened from DailyHub, sorted by your most recent visit, with a "played today" badge and a daily progress counter.
 - **Discover** — every approved game you haven't played yet (GeoGuessr Daily Challenge, TimeGuessr, Metrodoku, …).
 - **Suggest a game** — anyone can submit a name and URL. Suggestions are stored as `pending` until the admin approves them.
-- **Admin page** (`admin.html`) — password + 2FA login. Review suggestions, add, edit or delete games.
+- **Admin page** (`admin.html`) — email + password login. Review suggestions, add, edit or delete games.
 - **No account needed** for players — your visit history stays in your browser (`localStorage`).
 - Light and dark themes, follows your system setting.
 
@@ -16,7 +16,7 @@ A browser start page that gathers your daily games into cards sorted by your las
 ```
 Browser (static HTML/CSS/JS) ──GET approved games──────▶ Supabase REST API (Postgres + RLS)
                              ──POST pending suggestion──▶
-admin.html ──Supabase Auth (password + TOTP)──▶ aal2 session ──approve / edit / delete──▶ (RLS: admins only)
+admin.html ──Supabase Auth (email + password)──▶ session ──approve / edit / delete──▶ (RLS: admins only)
 ```
 
 | Part | Choice |
@@ -25,7 +25,7 @@ admin.html ──Supabase Auth (password + TOTP)──▶ aal2 session ──app
 | Database | Supabase, a single `games` table, called through its REST API with `fetch` |
 | Visit history | `localStorage` in the user's browser |
 | Previews | The site's logo (favicon), or a custom image if `preview_url` is set |
-| Moderation | `admin.html`, Supabase Auth with email + password and TOTP 2FA |
+| Moderation | `admin.html`, Supabase Auth with email + password |
 
 ### `games` table
 
@@ -49,12 +49,9 @@ All access control lives in the database (Row Level Security). The admin page ho
 - The suggestion form also has a honeypot field and a one-minute client-side cooldown.
 
 **Admin**
-- `private.is_admin()` is true only when all of these hold:
-  - the signed-in user's email is listed in `private.admins`,
-  - that email is confirmed,
-  - the session was verified with 2FA (`aal = 'aal2'` in the JWT).
-- Only then can the user see pending rows and insert, update or delete games.
-- A stolen password alone gives nothing: without the TOTP code the session stays `aal1`.
+- `private.is_admin()` is true only when the signed-in user's email is listed in `private.admins` and confirmed.
+- Only then can the user see pending rows and insert, update or delete games. Any other account gets the same rights as a visitor.
+- Sign-ups are disabled in Supabase Auth, and Supabase rate-limits login attempts.
 - `private` isn't exposed by the REST API; `private.admins` isn't readable by any API role.
 
 **Admin page hardening**
@@ -70,7 +67,7 @@ All access control lives in the database (Row Level Security). The admin page ho
 index.html                     page structure and card template
 style.css                      styles (light + dark)
 app.js                         data loading, rendering, visits, suggestion form
-admin.html / admin.css / admin.js   admin page (login, 2FA, moderation)
+admin.html / admin.css / admin.js   admin page (login, moderation)
 config.js                      Supabase URL and publishable key
 supabase/migrations/           table, RLS policies, admin role
 supabase/seed.sql              starter catalog
@@ -80,8 +77,7 @@ supabase/seed.sql              starter catalog
 
 1. Open `admin.html` (e.g. `https://<user>.github.io/DailyHub/admin.html`).
 2. Sign in with your email and password.
-3. First time: scan the QR code with an authenticator app (Google Authenticator, Authy, 1Password…) and enter the code. Afterwards: just enter the 6-digit code.
-4. Accept or refuse pending suggestions, add games directly, edit or delete catalog entries.
+3. Accept or refuse pending suggestions, add games directly, edit or delete catalog entries.
 
 ## Run locally
 
